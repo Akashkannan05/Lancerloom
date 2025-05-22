@@ -1,5 +1,0 @@
-django
-djangorestframework
-pillow
-djangorestframework-simplejwt
-python-decouple
