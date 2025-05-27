@@ -16,6 +16,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import generics,views
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 def generate_otp():
     otp=""
@@ -67,25 +68,30 @@ class SendEmailView(views.APIView):
                 raise ValidationError("An account with this email already exists.")
         print("Purpose:_____",purpose)
         SendEmail(email)
+
         return Response({"message":"Mail Send"},status=status.HTTP_200_OK)
 SendEmailClass=SendEmailView.as_view()
 
 class verifyOtpView(views.APIView):
 
-    def post(self,requset):
+    def post(self,request):
         data=json.loads(self.request.body)
         email=data.get("email")
-        otp=data.get('otp')
+        otpArray=data.get('otp')
+        otp=""
+        for i in otpArray:
+            otp+=i
 
         if not email or not otp:
             raise ValidationError("All the fields are required.")
-        if cache.get('email') is None:
+        if cache.get(email) is None:
             raise ValidationError("You did not request for the otp")
         
         if verify_otp(email,otp):
             return Response({"otp":True},status=status.HTTP_200_OK)
         else:
             return Response({"otp":False},status=status.HTTP_406_NOT_ACCEPTABLE)
+        
 verifyOtpClass=verifyOtpView.as_view()
 
 class SignupView(views.APIView):
@@ -96,7 +102,10 @@ class SignupView(views.APIView):
         password=data.get('password')
         confirmPassword=data.get('confirmPassword')
         email=data.get('email')
-        otp=data.get('otp')
+        otpArray=data.get('otp')
+        otp=""
+        for i in otpArray:
+            otp+=i
 
         if not username or not password or not confirmPassword or not email or not otp:
             raise ValidationError("All the fields are required.")
@@ -131,15 +140,21 @@ class LoginView(views.APIView):
 
         qs=User.objects.filter(email=email).first()
         if qs is None:
-            raise NotFound("You dont have an account for thsi email")
+            raise NotFound("You dont have an account for this email")
 
         user = authenticate(username=qs.username, password=password)
         
         if not user:
              return Response({'message': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'message':'success','token': token.key})
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {'message':'success',
+            'access_token': str(refresh.access_token),
+            'refresh_token':str(refresh)
+            },status=status.HTTP_200_OK)
+    
+LoginClass=LoginView.as_view()
     
 LoginClass=LoginView.as_view()
 
@@ -150,8 +165,10 @@ class ForgetPasswordView(views.APIView):
         password=data.get('password')
         confirmPassword=data.get('confirmPassword')
         email=data.get('email')
-        otp=data.get('otp')
-
+        otpArray=data.get('otp')
+        otp=""
+        for i in otpArray:
+            otp+=i
         if not password or not confirmPassword or not email or not otp:
             raise ValidationError("All the fields are required.")
         
